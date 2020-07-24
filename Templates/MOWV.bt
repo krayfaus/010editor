@@ -5,9 +5,9 @@
 //    Author: Krayfaus
 //   Version: 1.0
 //   Purpose: Parse Magic Orchestra
-//            WAV/VAG files.
+//            WAV/VAG Vault files.
 //  Category: Modding > Dantelion
-// File Mask: *.mowv
+// File Mask: *.mowv;*.mow
 //  ID Bytes: 4D 4F 57 56 //MOWV
 //   History:
 //   1.0   24-06-2020 Krayfaus: Initial release.
