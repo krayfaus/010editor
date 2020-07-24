@@ -1,0 +1,189 @@
+//------------------------------------------------
+//--- 010 Editor v10.0 Binary Template
+//
+//      File: MOSB.bt
+//    Author: Krayfaus
+//   Version: 1.0
+//   Purpose: Parse Magic Orchestra
+//            Sound Bank files.
+//  Category: Modding > Dantelion
+// File Mask: *.mosb;*.msb
+//  ID Bytes: 4D 4F 53 42 //MOSB
+//   History:
+//   1.0   24-06-2020 Krayfaus: Initial release.
+//
+// More information available at:
+//  https://github.com/krayfaus/010editor
+//------------------------------------------------
+
+// Typedefs for the MOSB file
+typedef char SndEntryName[11];
+typedef char ArchiveName[12];
+
+//-------------------------------------
+// Define structures used in MOSB files
+
+typedef struct {
+  char signature[4]<bgcolor = 0xCCCCCC>;
+  uint16 version_major;
+  uint16 version_minor;
+  uint32 table_lenght;   // must greater than 1 for playable sound files
+  uint32 variant_count;  // number of snd variants
+
+  ArchiveName archive_name;
+  byte padding[20]<hidden = true>;  // Always 0? Maybe ArchiveName is char[32]
+
+  DisplayFormatHex();
+  uint32 idx_variants;
+  uint32 idx_data6;
+  uint32 idx_data2;
+  uint32 idx_data3;
+  uint32 idx_data4;     // sndData3 offset
+  uint32 idx_data5[4];  // always same value for all
+  uint32 idx_data7;
+  uint32 idx_archive_name;
+  uint32 idx_variant_names;
+  DisplayFormatDecimal();
+} MosbHeader<bgcolor = 0xA86872>;
+
+typedef struct {
+  uint16 unk0;
+  uint16 unk1;
+  uint16 unk2;
+  uint16 unk3;
+  uint16 unk4;
+  uint16 unk5;
+  uint16 unk6;
+  uint16 unk7;
+  uint16 unk8;
+  uint16 unk9;
+} SbVariant<bgcolor = 0xA86872>;
+
+typedef struct {
+  uint16 unk0;
+  uint16 unk1;
+  uint16 unk2;
+  uint16 unk3;
+} U16Pack4;
+
+typedef struct {
+  uint16 variant_index<bgcolor = 0xA86872>;
+  uint16 unk1;
+  uint16 unk2;
+  uint16 unk3;
+  uint16 unk4;
+  uint16 unk5;
+} SbVariantIndex<read = read_sbdata7>;
+
+typedef struct {
+  uint16 unk0;
+  uint16 unk1;
+  uint16 unk2;
+  uint16 unk3;
+  uint16 unk4;
+  uint16 unk5;
+  uint16 unk6;
+  uint16 unk7;
+  uint16 unk8;
+  uint16 unk9;
+  uint16 unk10;
+  uint16 unk11;
+} U16Pack12;
+
+typedef struct {
+  uint16 unk0;
+  uint16 unk1;
+  uint16 unk2;
+  uint16 unk3;
+  uint16 unk4;
+  uint16 unk5;
+  uint16 unk6;
+  uint16 unk7;
+  uint16 unk8;
+  uint16 unk9;
+  uint16 unk10;
+  uint16 unk11;
+  uint16 unk12;
+  uint16 unk13;
+} U16Pack14;
+
+typedef struct {
+  uint unk0;
+  uint unk1;
+  struct {
+    uint unk2;
+    uint unk3;
+    uint unk4;
+    uint unk5;
+  } sub;
+} SndData3;
+
+typedef struct {
+  SndEntryName name;
+} SbVariantName<read = read_snd_name>;
+
+//------------------------------------------------
+
+// Custom read function that allows the name of
+//  the archive to appear in the Template Results.
+
+string read_sbdata7(SbVariantIndex &e)
+{
+  string id;
+  SPrintf(id, "%d", e.variant_index);
+  return id;
+}
+
+string read_snd_name(SbVariantName &var)
+{
+  return var.name;
+}
+
+// ----- FORMAT -----
+
+BigEndian();
+
+MosbHeader header;
+
+local int size = 0;
+local uint32 array_length = 0;
+local long oldPos = 0;
+
+FSeek(header.idx_variants);
+SbVariant snd_variants[header.table_lenght];
+
+FSeek(header.idx_data2);
+size = (header.idx_data3 - header.idx_data2);
+if (size < 1) {
+  Printf("File doesn't have a Data2, struct size is %d\n", size);
+} else {
+  uint16 snd_data2[size / 2];
+}
+
+// ---- snd_data3 -----
+FSeek(header.idx_data3);
+size = (header.idx_data4 - header.idx_data3);
+U16Pack12 snd_data3[size / sizeof(U16Pack12)];
+
+// ---- snd_data4 -----
+FSeek(header.idx_data4);
+array_length = (header.idx_data5[0] - header.idx_data4);
+U16Pack12 snd_data4[array_length / sizeof(U16Pack12)];
+
+FSeek(header.idx_data5[0]);
+array_length = (header.idx_data6 - header.idx_data5[0]);
+U16Pack4 snd_data5[array_length / sizeof(U16Pack4)];
+
+FSeek(header.idx_data6);
+array_length = (header.idx_data7 - header.idx_data6);
+U16Pack14 snd_data6[array_length / sizeof(U16Pack14)];
+
+FSeek(header.idx_data7);
+array_length = (header.idx_archive_name - header.idx_data7);
+SbVariantIndex sb_name_indices[array_length / sizeof(SbVariantIndex)];
+
+FSeek(header.idx_archive_name);
+ArchiveName archive_name;
+
+FSeek(header.idx_variant_names);
+SbVariantName sb_names[header.variant_count];

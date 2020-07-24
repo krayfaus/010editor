@@ -1,0 +1,144 @@
+//------------------------------------------------
+//--- 010 Editor v10.0 Binary Template
+//
+//      File: MOGS.bt
+//    Author: Krayfaus
+//   Version: 1.0
+//   Purpose: Parse Magic Orchestra
+//            Global Setting files.
+//  Category: Modding > Souls
+// File Mask: *.mgs
+//  ID Bytes: 4D 4F 47 53 //MOGS
+//   History:
+//   1.0   24-06-2020 Krayfaus: Initial release.
+//
+// More information available at:
+//  https://github.com/krayfaus/010editor
+//------------------------------------------------
+
+// ---- Constants ----
+#define MAX_STR_LENGHT 16
+
+// ---- Structures -----
+typedef struct {
+  uint32 lenght;
+  uint32 position;
+} Offset;
+
+typedef struct {
+  uint unk0;
+  uint unk1;
+  uint unk2;
+  uint unk3;
+  uint unk4;
+  uint unk5;
+  uint unk6;
+  uint unk7;
+} U32Pack8;
+
+typedef struct {
+  char name[MAX_STR_LENGHT];
+  uint32 unknown1;
+  uint32 unknown2<hidden = true>;
+  uint32 padding1<hidden = true>;
+  uint32 unknown3;
+  uint32 padding2<hidden = true>;
+  uint32 padding3<hidden = true>;
+} SndType<read = readSndType>;
+string readSndType(SndType &st) {
+  Assert(st.padding1 == 0, "padding1 != 0");
+  Assert(st.padding2 == 0, "padding2 != 0");
+  Assert(st.padding3 == 0, "padding3 != 0");
+  string name;
+  SPrintf(name, "%s", st.name);
+  return "a";
+}
+
+local uint32 gl_data_lenght = 0;
+
+typedef struct {
+  uint32 unk1;
+  uint32 lenght;
+  uint32 position;
+} SndData<optimize = false>;
+
+typedef struct {
+  local uint32 block_lenght = gl_data_lenght * 2;
+  uint32 data[block_lenght];
+} SndDataEntry<optimize = false>;
+
+typedef struct {
+  uint unk0;
+  uint unk1;
+  uint unk2;
+  uint unk3;
+  uint name_pos<format = hex>;
+
+  local uint64 old_pos = FTell();
+  FSeek(name_pos);
+  string name;
+  FSeek(old_pos);
+} NameOffsets<optimize = false, read = readNameOffsets>;
+string readNameOffsets(NameOffsets &noff) { return noff.name; }
+
+typedef struct {
+  string str;
+} Name<optimize = false, read = readName>;
+string readName(Name &name) { return name.str; }
+
+BigEndian();
+
+// ---- File Format -----
+struct {
+  byte magic[4];
+  uint16 version_major;
+  uint16 version_minor;
+  uint32 unknown1;
+  uint32 snd_data_offset;
+  uint32 snd_type_offset<format = hex>;
+} Header;
+
+struct {
+  // Seek snd_type_offset
+  uint32 snd_type_count;
+  uint32 snd_type_block_size<comment = "28 = 16 + 4 * 3">;
+  SndType snd_types[snd_type_count];
+
+  // Seek snd_data_offset
+  uint32 snd_data_count;
+  uint32 snd_data_offset;
+  Offset offsets[snd_data_count];
+
+  local uint32 i = 0;
+  local uint32 j = 0;
+  local uint32 snd_data_lenght = 0;
+  local uint64 old_position = FTell();
+  for (i = 0; i < snd_data_count; i++) {
+    FSeek(offsets[i].position);
+    for (j = 0; j < offsets[i].lenght; j++) {
+      SndData snd_data;
+      snd_data_lenght += 1;
+    }
+  }
+
+  for (i = 0; i < snd_data_lenght; i++) {
+    Printf("Goto %ld\n", snd_data[i].position);
+    FSeek(snd_data[i].position);
+    gl_data_lenght = snd_data[i].lenght;
+    SndDataEntry snd_data_entries;
+  }
+
+  uint32 name1_count;
+  uint32 name2_count;
+  uint32 start_pos_name1;
+  uint32 start_pos_name2;
+
+  // Seek start_pos_name1
+  NameOffsets name1_offsets[name1_count];
+
+  // Seek start_pos_name2
+  // NameOffsets name2_offsets[name2_count];
+
+  FSeek(name1_offsets[0].name_pos);  // 0x598
+  Name names[name2_count];           // 10
+} Data;

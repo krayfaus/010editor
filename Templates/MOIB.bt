@@ -1,0 +1,138 @@
+//------------------------------------------------
+//--- 010 Editor v10.0 Binary Template
+//
+//      File: MOIB.bt
+//    Author: Krayfaus
+//   Version: 1.0
+//   Purpose: Parse Magic Orchestra
+//            Info Bank files.
+//  Category: Modding > Souls
+// File Mask: *.moib;*.mib;
+//  ID Bytes: 4D 4F 53 49 //MOSI
+//   History:
+//   1.0   24-06-2020 Krayfaus: Initial release.
+//
+// More information available at:
+//  https://github.com/krayfaus/010editor
+//------------------------------------------------
+
+// Define structures used in MOIB files
+
+struct MoibHeaderDemons {
+  byte magic[4] <bgcolor = 0xCCCCCC>;
+  uint16 version;
+  uint16 format;
+  uint32 playablesnd_count;
+  uint32 padding;
+  Assert(padding == 0, "Padding != 0");
+};
+
+struct MoibEntryArmored {
+  uint32 snd_id <bgcolor = 0xA86872>;
+  uint16 unk2a;
+  uint16 unk2b;
+  uint16 unk3a;
+  uint16 unk3b;
+  uint32 padding <hidden = true>;
+};
+
+typedef struct MoibEntryDemons {
+  uint32 snd_id <bgcolor = 0x0099CC>;
+  uint16 unk0;
+  uint16 unk1;  // 4096 or 8192
+  uint16 unk2;
+  uint16 unk3;
+  uint16 unk4 <bgcolor = 0xC0CC0C>;
+  uint16 unk5 <bgcolor = 0xCC0099>;
+  uint16 unk6 <bgcolor = 0xC0CC0C>;
+  uint16 unk7 <bgcolor = 0xCC0099>;
+  if (header.format == 0x03 || header.format == 0x02) {
+    uint16 unk8 <bgcolor = 0xC90C0C>;
+    uint16 pad0 <bgcolor = 0x990CCC, hidden = true>;
+    uint32 pad1 <bgcolor = 0x990CCC, hidden = true>;
+  }
+};
+
+struct MoibDataDemons {
+  local int i;
+  for (i = 0; i < header.playablesnd_count; i++) {
+    MoibEntryDemons entries;
+
+    Assert(
+      entries[i].unk0 == 0 ||
+      entries[i].unk0 == 256 ||
+      entries[i].unk0 == 511 ||
+      entries[i].unk0 == 512 ||
+      entries[i].unk0 == 767,
+      "unk0 != valid"
+    );
+
+    Assert(
+      entries[i].unk1 == 4224 ||
+      entries[i].unk1 == 4096 ||
+      entries[i].unk1 == 8192 ||
+      entries[i].unk1 == 8320,
+      "unk1 != valid"
+    );
+
+    Assert(
+      entries[i].unk2 == 255 ||
+      entries[i].unk2 == 511 ||
+      entries[i].unk2 == 513 ||
+      entries[i].unk2 == 767 ||
+      entries[i].unk2 == 769,
+      "unk2 != valid"
+    );
+
+    Assert(
+      entries[i].unk3 == 257 ||
+      entries[i].unk3 == 511 ||
+      entries[i].unk3 == 65535 ||
+      entries[i].unk3 == 65280 ||
+      entries[i].unk3 == 65281,
+      "unk3 != valid"
+    );
+
+    Assert(
+      entries[i].unk5 == 0 ||
+      entries[i].unk5 == 9200 ||
+      entries[i].unk5 == 20352 ||
+      entries[i].unk5 == 32768 ||
+      entries[i].unk5 == 49152,
+      "unk5 != valid"
+    );
+
+    Assert(
+      entries[i].unk7 == 0 || entries[i].unk7 == 9200 ||
+      entries[i].unk7 == 20352 ||
+      entries[i].unk7 == 32768 ||
+      entries[i].unk7 == 49152,
+      "unk7 != valid"
+    );
+
+    Assert(entries[i].unk5 == entries[i].unk7, "unk5 != unk7");
+
+    if (header.format == 0x03) {
+      Assert(
+        entries[i].unk8 == 65280 ||
+        entries[i].unk8 == 65281,
+        "unk8 != 65280"
+      );
+      Assert(entries[i].pad0 == 0, "pad0 != 0");
+      Assert(entries[i].pad1 == 0, "pad1 != 0");
+    }
+  }
+};
+
+//---------------------------------------------
+
+BigEndian();
+local uint32 signature = ReadUInt();
+
+if (signature == 0x4D4F5349) {
+  MoibHeaderDemons header;
+  MoibDataDemons data;
+} else {
+  uint32 num_of_entries;
+  MoibEntryArmored entries[num_of_entries];
+}

@@ -1,0 +1,145 @@
+//------------------------------------------------
+//--- 010 Editor v10.0 Binary Template
+//
+//      File: MOWV.bt
+//    Author: Krayfaus
+//   Version: 1.0
+//   Purpose: Parse Magic Orchestra
+//            WAV/VAG files.
+//  Category: Modding > Dantelion
+// File Mask: *.mowv
+//  ID Bytes: 4D 4F 57 56 //MOWV
+//   History:
+//   1.0   24-06-2020 Krayfaus: Initial release.
+//
+// More information available at:
+//  https://github.com/krayfaus/010editor
+//------------------------------------------------
+
+// Typedefs for the MOWV file
+typedef char ArchiveName[12];
+typedef uint16 MowvSeIndex;
+
+//-------------------------------------
+// Define structures used in MOWV files
+
+// enum used for archive format
+typedef enum<uint16> {
+  MOWV_BGM = 0x0,
+  MOWV_SE = 0x4B,
+} MowvType;
+
+// enum used for BGM entry format
+typedef enum<uint32> {
+  BGM_BLANK = 0x1AC44,
+  BGM_VOICE = 0x1BB80,
+  BGM_AMBIANCE = 0x2BB80,
+  BGM_MUSIC = 0x102BB80,
+} BgmEntryType;
+
+// Stores the file header information
+typedef struct {
+  char signature[4];
+  uint16 version_major;
+  uint16 version_minor;
+  MowvType mowv_format;
+  if (mowv_format == MOWV_BGM) {
+    uint16 file_size<format = hex>;
+    uint32 data_size<comment = "data_size = bgm_entry_count * 2 + 1">;
+  } else if (mowv_format == MOWV_SE) {
+    uint16 entry_format<format = hex>;
+    uint32 entry_count;
+  }
+  ArchiveName archive_name;
+  uint16 flags[10];
+} MowvHeader<read = read_mowv_header>;
+
+// Defines a BGM sound entry
+typedef struct {
+  uint32 bgm_type<format = hex>;
+  uint32 : 32;  // Just padding
+  uint32 wav_size<comment = "wav datachunk size + 8">;
+  uint32 : 32;  // Literaly a trash dump
+  uint32 : 32;  //  of overwritten stuff.
+  uint32 : 32;  // see: ds_bgm_03.mowv file.
+  uint32 : 32;  // Takeyuu is a bro for
+  uint32 : 32;  //  saving me time.
+} MowvBgmEntry<read = read_mowv_bgm_entry>;
+
+// Defines a SE sound entry
+typedef struct {
+  uint32 snd_type;
+  uint32 index_pos<bgcolor = 0xC0CC0C>;
+} MowvSeEntry<read = read_mowv_se_entry>;
+
+//------------------------------------------------
+
+// Custom read function that allows the name of
+//  the archive to appear in the Template Results.
+
+string read_mowv_header(struct MowvHeader& hdr)
+{
+  if (exists(hdr.archive_name)) {
+    return hdr.archive_name;
+  } else {
+    return "";
+  }
+}
+
+// Custom read functions that allows the entry
+//  format to appear in the Template Results.
+
+string read_mowv_bgm_entry(MowvBgmEntry& e)
+{
+  switch (e.bgm_type) {
+    case BGM_VOICE:
+      return "Voice";
+    case BGM_MUSIC:
+      return "Music";
+    case BGM_AMBIANCE:
+      return "Ambiance";
+    case BGM_BLANK:
+      return "Blank";
+    default:
+      return "Unknown";
+  }
+}
+
+string read_mowv_se_entry(MowvSeEntry& e)
+{
+  string id;
+  SPrintf(id, "%d", (int)ReadUShort(e.index_pos));
+  return "SFX " + id;
+}
+
+//---------------------------------------------
+
+// Define the headers
+BigEndian();
+SetBackColor(cPurple);
+MowvHeader header;
+
+// Check for valid header
+if (header.signature != "MOWV") {
+  Warning("File is not a valid MOWV file. Template stopped.");
+  return -1;
+}
+
+// Check for valid version
+if (header.version_major != 2 || header.version_minor != 0) {
+  Warning("File version is not supported. Attempting to read.");
+}
+
+// Read the file data
+SetBackColor(cLtBlue);
+if (header.mowv_format == MOWV_BGM) {
+  local uint32 bgm_entry_count = header.data_size / 2;
+  MowvBgmEntry bgm_entries[bgm_entry_count];
+} else if (header.mowv_format == MOWV_SE) {
+  MowvSeEntry se_entries[header.entry_count];
+  SetBackColor(0xCC0099);
+  MowvSeIndex se_indices[header.entry_count];
+} else {
+  Warning("File doesn't contain a valid MOWV format.");
+  return -1;
+}
